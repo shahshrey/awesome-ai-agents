@@ -1,0 +1,7 @@
+strands-agents[openai]
+strands-agents-tools
+mcp
+pydantic>=2.0
+python-dotenv
+colorama
+langsmith[otel]
