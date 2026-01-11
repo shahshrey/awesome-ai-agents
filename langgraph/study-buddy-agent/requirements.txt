@@ -1,0 +1,25 @@
+# Core dependencies
+langchain-openai>=0.3.0
+langgraph>=0.2.0
+langgraph-checkpoint>=2.0.0
+langgraph-checkpoint-redis>=0.3.0
+langchain-redis>=0.1.0
+
+# Redis
+redis>=5.0.0
+redisvl>=0.3.0
+
+# OpenAI
+openai>=1.50.0
+
+# Web Search
+tavily-python>=0.5.0
+
+# Streamlit UI
+streamlit>=1.40.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+ulid-py>=1.1.0
+tavily-python
