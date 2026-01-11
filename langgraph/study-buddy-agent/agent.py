@@ -5,7 +5,7 @@ import os
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Dict, Any
+from typing import Annotated, List, Optional, Dict, Any
 
 import ulid
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ from redis import Redis
 from dotenv import load_dotenv
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import tool
+from langchain_core.tools import tool, InjectedToolArg
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt.chat_agent_executor import create_react_agent
@@ -66,16 +66,6 @@ knowledge_index: Optional[SearchIndex] = None
 openai_embed: Optional[OpenAITextVectorizer] = None
 redis_saver: Optional[RedisSaver] = None
 tavily_client: Optional[TavilyClient] = None
-_current_user_id: str = "default_user"
-
-
-def set_current_user(user_id: str):
-    global _current_user_id
-    _current_user_id = user_id
-
-
-def get_current_user() -> str:
-    return _current_user_id
 
 
 def setup_redis() -> bool:
@@ -289,7 +279,11 @@ def get_all_memories(
 
 
 @tool
-def save_topic(topic: str, summary: str) -> str:
+def save_topic(
+    topic: str,
+    summary: str,
+    config: Annotated[RunnableConfig, InjectedToolArg]
+) -> str:
     """
     Save a topic that the user has learned about.
     
@@ -299,7 +293,7 @@ def save_topic(topic: str, summary: str) -> str:
         topic: The name/title of the topic
         summary: A brief summary of what was learned about this topic
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     content = f"Topic: {topic}\nSummary: {summary}"
     metadata = f'{{"topic": "{topic}"}}'
     
@@ -309,7 +303,11 @@ def save_topic(topic: str, summary: str) -> str:
 
 
 @tool
-def save_note(note: str, category: Optional[str] = None) -> str:
+def save_note(
+    note: str,
+    config: Annotated[RunnableConfig, InjectedToolArg],
+    category: Optional[str] = None
+) -> str:
     """
     Save a personal note or insight for the user.
     
@@ -319,7 +317,7 @@ def save_note(note: str, category: Optional[str] = None) -> str:
         note: The note or insight to save
         category: Optional category for the note (e.g., "tip", "insight", "reminder")
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     content = f"Note: {note}" + (f" [Category: {category}]" if category else "")
     metadata = f'{{"category": "{category or "general"}"}}'
     
@@ -329,7 +327,11 @@ def save_note(note: str, category: Optional[str] = None) -> str:
 
 
 @tool
-def update_learning_progress(topic: str, status: str) -> str:
+def update_learning_progress(
+    topic: str,
+    status: str,
+    config: Annotated[RunnableConfig, InjectedToolArg]
+) -> str:
     """
     Update learning progress for a topic.
     
@@ -339,7 +341,7 @@ def update_learning_progress(topic: str, status: str) -> str:
         topic: The topic being tracked
         status: Progress status - one of: "learning", "reviewing", "mastered", "struggling"
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     
     valid_statuses = ["learning", "reviewing", "mastered", "struggling"]
     if status.lower() not in valid_statuses:
@@ -354,7 +356,10 @@ def update_learning_progress(topic: str, status: str) -> str:
 
 
 @tool  
-def save_learning_preference(preference: str) -> str:
+def save_learning_preference(
+    preference: str,
+    config: Annotated[RunnableConfig, InjectedToolArg]
+) -> str:
     """
     Save a learning style preference.
     
@@ -364,7 +369,7 @@ def save_learning_preference(preference: str) -> str:
     Args:
         preference: Description of the learning preference
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     content = f"Learning Preference: {preference}"
     
     if store_memory(content, MemoryType.PREFERENCE, user_id):
@@ -373,7 +378,11 @@ def save_learning_preference(preference: str) -> str:
 
 
 @tool
-def recall_knowledge(query: str, memory_types: Optional[List[str]] = None) -> str:
+def recall_knowledge(
+    query: str,
+    config: Annotated[RunnableConfig, InjectedToolArg],
+    memory_types: Optional[List[str]] = None
+) -> str:
     """
     Search and recall previously stored knowledge.
     
@@ -385,7 +394,7 @@ def recall_knowledge(query: str, memory_types: Optional[List[str]] = None) -> st
                "recent topics" or "user preferences" - do NOT pass an empty string.
         memory_types: Optional list of types to filter ("topic", "note", "progress", "preference")
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     
     # Handle empty query by fetching recent memories instead
     if not query or not query.strip():
@@ -430,7 +439,11 @@ def recall_knowledge(query: str, memory_types: Optional[List[str]] = None) -> st
 
 
 @tool
-def generate_quiz(topic: Optional[str] = None, num_questions: int = 3) -> str:
+def generate_quiz(
+    config: Annotated[RunnableConfig, InjectedToolArg],
+    topic: Optional[str] = None,
+    num_questions: int = 3
+) -> str:
     """
     Generate a quiz based on topics the user has learned.
     
@@ -440,7 +453,7 @@ def generate_quiz(topic: Optional[str] = None, num_questions: int = 3) -> str:
         topic: Optional specific topic to quiz on. If not provided, uses recent topics.
         num_questions: Number of questions to generate (1-5)
     """
-    user_id = get_current_user()
+    user_id = config.get("configurable", {}).get("user_id", SYSTEM_USER_ID)
     
     query = topic if topic else "topics learned concepts studied"
     memories = retrieve_memories(query, [MemoryType.TOPIC], user_id, limit=3)
@@ -659,8 +672,6 @@ def chat(
     thread_id: str = "default",
     user_id: str = SYSTEM_USER_ID,
 ) -> str:
-    set_current_user(user_id)
-    
     graph = create_workflow()
     config = RunnableConfig(configurable={"thread_id": thread_id, "user_id": user_id})
     state = RuntimeState(messages=[HumanMessage(content=user_message)])
