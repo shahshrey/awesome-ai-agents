@@ -57,7 +57,7 @@ def create_mcp_clients() -> dict[str, MCPClient]:
         ))
     
     return {
-        "firecrawl": make_client(["firecrawl-mcp"], env_key="FIRECRAWL_API_KEY"),
+        "firecrawl": make_client(["firecrawl-mcp@latest"], env_key="FIRECRAWL_API_KEY"),
         "tavily": make_client(["tavily-mcp@0.1.4"], env_key="TAVILY_API_KEY"),
         "brave_search": make_client(["@brave/brave-search-mcp-server"], env_key="BRAVE_API_KEY"),
         "filesystem": make_client(["@modelcontextprotocol/server-filesystem", os.getcwd()]),
